@@ -1,0 +1,1410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CHECKMATE — UNAUTHORIZED TRUTH</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Share+Tech+Mono&family=VT323&family=Bebas+Neue&family=Rajdhani:wght@700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --blue: #0047FF;
+  --blue-bright: #00C2FF;
+  --purple: #5B00A8;
+  --purple-bright: #A020F0;
+  --red: #CC0010;
+  --red-bright: #FF0033;
+  --yellow: #FFE000;
+  --yellow-bright: #FFFF00;
+  --black: #030008;
+  --white: #F0F0FF;
+  --mono: 'Share Tech Mono', monospace;
+  --display: 'Bebas Neue', 'Black Han Sans', sans-serif;
+  --vt: 'VT323', monospace;
+}
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--black);
+  color: var(--white);
+  font-family: var(--mono);
+  overflow-x: hidden;
+  cursor: crosshair;
+}
+
+/* ─── CANVASES ─── */
+#asteroid-canvas, #matrix-canvas {
+  position: fixed; top:0; left:0;
+  width:100%; height:100%;
+  pointer-events:none;
+}
+#asteroid-canvas { z-index:0; }
+#matrix-canvas   { z-index:1; opacity:0.07; }
+
+/* ─── SCAN LINES ─── */
+.scanlines {
+  position:fixed; top:0; left:0; width:100%; height:100%;
+  background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.12) 3px, rgba(0,0,0,0.12) 4px);
+  pointer-events:none; z-index:2; display:none;
+}
+.scanlines.on { display:block; }
+
+/* ══════════════════════════════════
+   GATE
+══════════════════════════════════ */
+#gate {
+  position:fixed; inset:0; z-index:900;
+  background: var(--black);
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  overflow:hidden;
+}
+
+/* noise texture overlay on gate */
+#gate::after {
+  content:'';
+  position:absolute; inset:0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events:none; opacity:0.4;
+}
+
+/* large BG text */
+.gate-bg-text {
+  position:absolute;
+  font-family: var(--display);
+  font-size: clamp(8rem, 25vw, 22rem);
+  color: rgba(255,224,0,0.03);
+  letter-spacing:-0.02em;
+  user-select:none;
+  pointer-events:none;
+  white-space:nowrap;
+}
+
+/* diagonal accent bars */
+.gate-bar {
+  position:absolute;
+  width:4px;
+  height:200%;
+  top:-50%;
+  transform-origin:center;
+  opacity:0.15;
+}
+.gate-bar:nth-child(1){ left:10%; background:var(--blue); transform:rotate(15deg); }
+.gate-bar:nth-child(2){ left:25%; background:var(--purple-bright); transform:rotate(15deg); }
+.gate-bar:nth-child(3){ right:20%; background:var(--red-bright); transform:rotate(-15deg); }
+.gate-bar:nth-child(4){ right:8%; background:var(--yellow); transform:rotate(-15deg); }
+
+.gate-inner {
+  position:relative; z-index:2;
+  display:flex; flex-direction:column;
+  align-items:center; text-align:center;
+  padding:2rem;
+}
+
+/* top label */
+.gate-eyebrow {
+  font-family: var(--mono);
+  font-size:0.6rem;
+  letter-spacing:0.7em;
+  color: var(--yellow);
+  text-transform:uppercase;
+  margin-bottom:0.8rem;
+  opacity:0.8;
+}
+
+/* CHECKMATE huge title on gate */
+.gate-title {
+  font-family: var(--display);
+  font-size: clamp(5rem, 18vw, 13rem);
+  line-height:0.85;
+  letter-spacing:0.05em;
+  color: var(--white);
+  position:relative;
+  animation: gateFlicker 5s infinite;
+}
+
+/* color-split layer */
+.gate-title .r { color:var(--red-bright); }
+.gate-title .b { color:var(--blue-bright); }
+
+/* glitch clone */
+.gate-title::before,
+.gate-title::after {
+  content: attr(data-text);
+  position:absolute; top:0; left:0; width:100%;
+  font-family: var(--display);
+  font-size: inherit;
+  letter-spacing: inherit;
+  pointer-events:none;
+}
+.gate-title::before {
+  color: var(--red-bright);
+  clip-path: polygon(0 20%, 100% 20%, 100% 40%, 0 40%);
+  animation: glitchA 4s infinite;
+  opacity:0.7;
+}
+.gate-title::after {
+  color: var(--blue-bright);
+  clip-path: polygon(0 60%, 100% 60%, 100% 80%, 0 80%);
+  animation: glitchB 4s infinite 0.5s;
+  opacity:0.7;
+}
+
+@keyframes glitchA {
+  0%,89%,100% { transform:none; opacity:0; }
+  90% { transform:translate(-4px,0) skewX(-3deg); opacity:0.7; }
+  92% { transform:translate(4px,0); opacity:0.4; }
+  94% { transform:translate(-2px,0) skewX(2deg); opacity:0.7; }
+  96% { transform:none; opacity:0; }
+}
+@keyframes glitchB {
+  0%,87%,100% { transform:none; opacity:0; }
+  88% { transform:translate(5px,0) skewX(4deg); opacity:0.7; }
+  91% { transform:translate(-3px,0); opacity:0.5; }
+  93% { transform:translate(2px,0) skewX(-2deg); opacity:0.7; }
+  95% { transform:none; opacity:0; }
+}
+@keyframes gateFlicker {
+  0%,94%,100% { opacity:1; }
+  95% { opacity:0.6; }
+  96% { opacity:1; }
+  97.5% { opacity:0.3; }
+  98% { opacity:1; }
+}
+
+.gate-sub {
+  font-family:var(--mono);
+  font-size:0.75rem;
+  letter-spacing:0.4em;
+  color: var(--blue-bright);
+  text-transform:uppercase;
+  margin-top:0.5rem;
+  margin-bottom:2.5rem;
+}
+
+/* input area */
+.gate-input-row {
+  display:flex;
+  align-items:stretch;
+  width: clamp(280px, 40vw, 520px);
+  border:2px solid var(--yellow);
+  box-shadow: 0 0 30px rgba(255,224,0,0.25), inset 0 0 15px rgba(255,224,0,0.04);
+}
+
+.gate-prompt {
+  background: var(--yellow);
+  color: var(--black);
+  font-family:var(--mono);
+  font-size:1rem;
+  font-weight:bold;
+  padding:0.8rem 1rem;
+  flex-shrink:0;
+  display:flex;
+  align-items:center;
+  letter-spacing:0.05em;
+}
+
+#pw {
+  background:transparent; border:none; outline:none;
+  flex:1;
+  color:var(--yellow);
+  font-family:var(--mono);
+  font-size:1.05rem;
+  letter-spacing:0.15em;
+  padding:0.8rem 1rem;
+  caret-color:var(--yellow);
+}
+#pw::placeholder { color:rgba(255,224,0,0.25); }
+
+.gate-enter-btn {
+  background: var(--red-bright);
+  border:none; cursor:pointer;
+  color:#fff;
+  font-family:var(--display);
+  font-size:1.1rem;
+  letter-spacing:0.1em;
+  padding:0.8rem 1.5rem;
+  transition:background 0.15s, box-shadow 0.15s;
+  flex-shrink:0;
+}
+.gate-enter-btn:hover {
+  background:#ff2255;
+  box-shadow:0 0 25px rgba(255,0,51,0.7);
+}
+
+.gate-hint {
+  font-size:0.55rem;
+  letter-spacing:0.4em;
+  color:rgba(255,255,255,0.2);
+  text-transform:uppercase;
+  margin-top:1.2rem;
+}
+
+/* denied */
+#denied {
+  display:none;
+  margin-top:1.5rem;
+  font-family:var(--vt);
+  font-size:clamp(1.8rem,5vw,3rem);
+  color:var(--red-bright);
+  letter-spacing:0.15em;
+  text-shadow:0 0 20px var(--red-bright), 0 0 40px var(--red);
+  animation:deniedShake 0.08s infinite;
+}
+@keyframes deniedShake {
+  0%,100%{transform:translate(0);}
+  20%{transform:translate(-5px,2px) skewX(-3deg);}
+  40%{transform:translate(5px,-2px) skewX(3deg);}
+  60%{transform:translate(-3px,3px);}
+  80%{transform:translate(4px,-1px);}
+}
+
+/* gate glitch */
+#gate.glitch { animation:crtGlitch 0.12s infinite; }
+@keyframes crtGlitch {
+  0%  {filter:none; transform:none;}
+  10% {filter:hue-rotate(90deg) saturate(6) brightness(1.5); transform:translate(-4px,2px);}
+  20% {filter:hue-rotate(200deg) saturate(3); transform:translate(5px,-3px);}
+  30% {filter:brightness(3) contrast(2) invert(0.1); transform:translate(-2px,4px);}
+  40% {filter:hue-rotate(45deg) saturate(8); transform:translate(6px,0);}
+  50% {filter:none; transform:translate(-5px,-2px);}
+  60% {filter:hue-rotate(160deg) brightness(2); transform:translate(3px,5px);}
+  70% {filter:saturate(10) hue-rotate(300deg); transform:translate(-4px,-3px);}
+  80% {filter:brightness(0.5) contrast(5); transform:translate(5px,2px);}
+  90% {filter:hue-rotate(270deg) saturate(4); transform:translate(-2px,-4px);}
+  100%{filter:none; transform:none;}
+}
+#gate.unlocking {
+  animation:gateOut 0.9s forwards;
+}
+@keyframes gateOut {
+  0%  {opacity:1; transform:scale(1);}
+  40% {opacity:1; transform:scale(1.03); filter:brightness(3) saturate(3);}
+  100%{opacity:0; transform:scale(1.08); filter:brightness(5);}
+}
+
+/* ══════════════════════════════════
+   MAIN SITE
+══════════════════════════════════ */
+#main { display:none; position:relative; z-index:10; }
+
+/* ─── NAV ─── */
+nav {
+  position:fixed; top:0; left:0; right:0; z-index:200;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 2rem;
+  height:56px;
+  background:rgba(3,0,8,0.92);
+  backdrop-filter:blur(12px);
+  border-bottom:2px solid var(--yellow);
+  box-shadow:0 2px 30px rgba(255,224,0,0.15);
+}
+
+.nav-logo {
+  font-family:var(--display);
+  font-size:2rem;
+  color:var(--yellow);
+  letter-spacing:0.08em;
+  text-shadow:0 0 15px rgba(255,224,0,0.5);
+}
+
+.nav-right {
+  display:flex; align-items:center; gap:0.5rem;
+}
+
+.nav-tag {
+  font-family:var(--mono);
+  font-size:0.55rem;
+  letter-spacing:0.3em;
+  text-transform:uppercase;
+  padding:0.3rem 0.8rem;
+  border:1px solid;
+  text-decoration:none;
+  transition:all 0.15s;
+}
+.nav-tag.blue  { color:var(--blue-bright); border-color:var(--blue-bright); }
+.nav-tag.red   { color:var(--red-bright);  border-color:var(--red-bright); }
+.nav-tag.purp  { color:var(--purple-bright); border-color:var(--purple-bright); }
+
+.nav-tag.blue:hover  { background:var(--blue-bright); color:var(--black); }
+.nav-tag.red:hover   { background:var(--red-bright);  color:#fff; }
+.nav-tag.purp:hover  { background:var(--purple-bright); color:#fff; }
+
+@media(max-width:600px){.nav-right{display:none;}}
+
+/* ─── HERO ─── */
+#hero {
+  min-height:100vh;
+  padding-top:56px;
+  display:flex; flex-direction:column;
+  justify-content:center; align-items:center;
+  text-align:center;
+  position:relative;
+  overflow:hidden;
+}
+
+/* large angled color block behind hero */
+#hero::before {
+  content:'';
+  position:absolute;
+  width:120%; height:60%;
+  top:20%; left:-10%;
+  background:linear-gradient(135deg, rgba(91,0,168,0.18), rgba(0,71,255,0.12), transparent);
+  transform:skewY(-4deg);
+  pointer-events:none;
+}
+
+.hero-ticker {
+  font-family:var(--mono);
+  font-size:0.6rem;
+  letter-spacing:0.5em;
+  color:var(--yellow);
+  text-transform:uppercase;
+  margin-bottom:2rem;
+  opacity:0;
+  animation:fadeUp 0.8s forwards 0.4s;
+  display:flex; align-items:center; gap:1rem;
+}
+.hero-ticker::before, .hero-ticker::after {
+  content:'';
+  display:inline-block;
+  width:40px; height:1px;
+  background:var(--yellow);
+  box-shadow:0 0 8px var(--yellow);
+}
+
+/* stacked headline */
+.hero-line1 {
+  font-family:var(--display);
+  font-size:clamp(3rem,14vw,11rem);
+  line-height:0.85;
+  letter-spacing:0.04em;
+  color:var(--white);
+  opacity:0;
+  animation:fadeUp 0.7s forwards 0.6s;
+  position:relative;
+}
+.hero-line2 {
+  font-family:var(--display);
+  font-size:clamp(3rem,14vw,11rem);
+  line-height:0.85;
+  letter-spacing:0.04em;
+  color:var(--yellow);
+  text-shadow:0 0 40px rgba(255,224,0,0.4);
+  opacity:0;
+  animation:fadeUp 0.7s forwards 0.85s;
+}
+.hero-line3 {
+  font-family:var(--display);
+  font-size:clamp(1.5rem,6vw,5rem);
+  line-height:1;
+  letter-spacing:0.08em;
+  opacity:0;
+  animation:fadeUp 0.7s forwards 1.05s;
+}
+.hero-line3 .hl-blue   { color:var(--blue-bright); }
+.hero-line3 .hl-red    { color:var(--red-bright); }
+.hero-line3 .hl-purple { color:var(--purple-bright); }
+
+/* rotating badge */
+.badge-ring {
+  position:absolute;
+  right: clamp(1rem,8vw,10rem);
+  top: clamp(4rem,14vh,9rem);
+  width: clamp(80px,10vw,130px);
+  height: clamp(80px,10vw,130px);
+  opacity:0;
+  animation:fadeUp 0.8s forwards 1.4s, spinSlow 20s linear infinite 2s;
+}
+@keyframes spinSlow { to{transform:rotate(360deg);} }
+
+.badge-ring svg text {
+  font-family:var(--mono);
+  font-size:11.5px;
+  fill:var(--yellow);
+  letter-spacing:3.5px;
+}
+
+/* founded tag */
+.hero-founder {
+  margin-top:2rem;
+  font-family:var(--mono);
+  font-size:clamp(0.6rem,1.5vw,0.8rem);
+  letter-spacing:0.4em;
+  color:rgba(255,255,255,0.5);
+  text-transform:uppercase;
+  opacity:0;
+  animation:fadeUp 0.8s forwards 1.2s;
+}
+.hero-founder strong { color:var(--red-bright); }
+
+/* scroll indicator */
+.scroll-indicator {
+  position:absolute;
+  bottom:2rem; left:50%;
+  transform:translateX(-50%);
+  display:flex; flex-direction:column; align-items:center; gap:0.4rem;
+  font-family:var(--mono); font-size:0.55rem;
+  letter-spacing:0.4em; color:rgba(255,255,255,0.3);
+  text-transform:uppercase;
+  opacity:0;
+  animation:fadeUp 1s forwards 2s;
+}
+.scroll-indicator .arrow {
+  width:20px; height:20px;
+  border-right:2px solid var(--yellow);
+  border-bottom:2px solid var(--yellow);
+  transform:rotate(45deg);
+  animation:arrowBounce 1.5s infinite;
+  box-shadow:3px 3px 8px rgba(255,224,0,0.4);
+}
+@keyframes arrowBounce {
+  0%,100%{transform:rotate(45deg) translate(0);}
+  50%{transform:rotate(45deg) translate(3px,3px);}
+}
+
+@keyframes fadeUp {
+  from{opacity:0;transform:translateY(25px);}
+  to{opacity:1;transform:translateY(0);}
+}
+
+/* ─── MARQUEE STRIP ─── */
+.marquee-strip {
+  overflow:hidden;
+  background: var(--yellow);
+  padding:0.5rem 0;
+  position:relative; z-index:10;
+  border-top:2px solid rgba(0,0,0,0.3);
+  border-bottom:2px solid rgba(0,0,0,0.3);
+}
+.marquee-inner {
+  display:flex; gap:0;
+  white-space:nowrap;
+  animation:marqueeSroll 18s linear infinite;
+}
+@keyframes marqueeSroll {
+  from{transform:translateX(0);}
+  to{transform:translateX(-50%);}
+}
+.marquee-item {
+  font-family:var(--display);
+  font-size:1rem;
+  letter-spacing:0.15em;
+  color:var(--black);
+  padding:0 2rem;
+  flex-shrink:0;
+}
+.marquee-item.sep { color:var(--red-bright); }
+
+/* ─── SECTION COMMONS ─── */
+.s {
+  padding: 7rem 2rem;
+  position:relative;
+  max-width:1200px;
+  margin:0 auto;
+}
+
+.s-label {
+  font-family:var(--mono);
+  font-size:0.58rem;
+  letter-spacing:0.7em;
+  text-transform:uppercase;
+  color:var(--yellow);
+  margin-bottom:0.7rem;
+  display:flex; align-items:center; gap:0.8rem;
+}
+.s-label::before {
+  content:'';
+  display:inline-block;
+  width:30px; height:2px;
+  background:var(--yellow);
+  box-shadow:0 0 8px var(--yellow);
+}
+
+.s-title {
+  font-family:var(--display);
+  font-size:clamp(3rem,8vw,7rem);
+  line-height:0.88;
+  letter-spacing:0.03em;
+  margin-bottom:2.5rem;
+}
+
+.s-body {
+  font-family:var(--mono);
+  font-size:clamp(0.8rem,1.4vw,0.95rem);
+  line-height:1.95;
+  color:rgba(240,240,255,0.7);
+  max-width:68ch;
+}
+.s-body p { margin-bottom:1.2rem; }
+
+/* ─── ABOUT SECTION ─── */
+#about { padding-top:5rem; }
+
+.about-grid {
+  display:grid;
+  grid-template-columns:1fr 380px;
+  gap:4rem;
+  align-items:start;
+}
+@media(max-width:900px){ .about-grid{grid-template-columns:1fr;} }
+
+.stat-block {
+  border:1px solid rgba(255,255,255,0.08);
+  background:rgba(255,224,0,0.03);
+  padding:2rem;
+  position:relative;
+  overflow:hidden;
+}
+.stat-block::before {
+  content:'';
+  position:absolute; top:0; left:0;
+  width:100%; height:3px;
+  background:linear-gradient(90deg, var(--purple-bright), var(--blue-bright), var(--yellow));
+}
+
+.stat-row {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:0.7rem 0;
+  border-bottom:1px solid rgba(255,255,255,0.06);
+  font-family:var(--mono);
+  font-size:0.75rem;
+}
+.stat-row:last-child { border-bottom:none; }
+.stat-key { color:rgba(255,255,255,0.35); letter-spacing:0.3em; text-transform:uppercase; }
+.stat-val { color:var(--yellow); font-weight:bold; text-align:right; letter-spacing:0.1em; }
+.stat-val.red   { color:var(--red-bright); }
+.stat-val.blue  { color:var(--blue-bright); }
+.stat-val.purp  { color:var(--purple-bright); }
+
+/* ─── DIVIDER ─── */
+.div-full {
+  width:100%; height:2px;
+  background:linear-gradient(90deg, transparent, var(--red-bright), var(--purple-bright), var(--blue-bright), transparent);
+  box-shadow:0 0 20px rgba(0,71,255,0.4);
+  margin:0;
+}
+
+/* ─── RATHORE SECTION ─── */
+#rathore-sec {
+  position:relative;
+  padding: 7rem 2rem;
+  overflow:hidden;
+}
+
+/* giant angled BG letter */
+#rathore-sec::before {
+  content:'R';
+  position:absolute;
+  right:-0.1em; top:50%;
+  transform:translateY(-50%);
+  font-family:var(--display);
+  font-size:clamp(20rem, 45vw, 55rem);
+  line-height:1;
+  color:rgba(160,32,240,0.05);
+  pointer-events:none;
+  user-select:none;
+}
+
+.rathore-inner { max-width:1200px; margin:0 auto; }
+
+.rathore-quote {
+  font-family:var(--display);
+  font-size:clamp(1.5rem,4vw,3.5rem);
+  line-height:1.15;
+  color:var(--white);
+  margin:2.5rem 0;
+  padding-left:2rem;
+  border-left:5px solid var(--purple-bright);
+  max-width:80ch;
+}
+.rathore-quote .y { color:var(--yellow); }
+.rathore-quote .r { color:var(--red-bright); }
+
+/* ─── MISSION SECTION ─── */
+#mission-sec {
+  background:rgba(0,71,255,0.04);
+  border-top:1px solid rgba(0,71,255,0.15);
+  border-bottom:1px solid rgba(0,71,255,0.15);
+  padding:7rem 2rem;
+}
+
+.mission-inner { max-width:1200px; margin:0 auto; }
+
+.directives {
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap:1.5rem;
+  margin-top:3rem;
+}
+
+.directive-card {
+  border:1px solid rgba(255,255,255,0.07);
+  padding:1.8rem;
+  position:relative;
+  background:rgba(3,0,8,0.5);
+  transition:border-color 0.2s, transform 0.2s;
+}
+.directive-card:hover {
+  border-color:var(--blue-bright);
+  transform:translateY(-3px);
+}
+
+.directive-num {
+  font-family:var(--display);
+  font-size:3.5rem;
+  line-height:1;
+  color:rgba(255,224,0,0.12);
+  position:absolute;
+  top:1rem; right:1.2rem;
+}
+
+.directive-title {
+  font-family:var(--display);
+  font-size:1.4rem;
+  letter-spacing:0.08em;
+  color:var(--yellow);
+  margin-bottom:0.8rem;
+}
+
+.directive-text {
+  font-family:var(--mono);
+  font-size:0.78rem;
+  line-height:1.8;
+  color:rgba(240,240,255,0.55);
+}
+
+/* ─── BANNED SECTION ─── */
+#banned-sec {
+  padding:7rem 2rem;
+  position:relative;
+}
+
+.banned-inner { max-width:1200px; margin:0 auto; }
+
+.banned-header {
+  display:flex; flex-direction:column; align-items:center;
+  text-align:center; margin-bottom:4rem;
+}
+
+.banned-header h2 {
+  font-family:var(--display);
+  font-size:clamp(2.5rem,8vw,7rem);
+  line-height:0.88;
+  letter-spacing:0.03em;
+  color:var(--red-bright);
+  text-shadow:0 0 40px rgba(255,0,51,0.35);
+}
+
+.banned-header .sub {
+  font-family:var(--mono);
+  font-size:0.65rem;
+  letter-spacing:0.5em;
+  color:rgba(255,0,51,0.5);
+  text-transform:uppercase;
+  margin-top:0.7rem;
+}
+
+/* terminal wrapper */
+.terminal {
+  background:#000;
+  border:1px solid rgba(0,255,65,0.2);
+  box-shadow:0 0 60px rgba(0,255,65,0.04), inset 0 0 60px rgba(0,0,0,0.8);
+  position:relative;
+  overflow:hidden;
+}
+
+.terminal-bar {
+  background:rgba(0,255,65,0.08);
+  padding:0.6rem 1.2rem;
+  border-bottom:1px solid rgba(0,255,65,0.15);
+  display:flex; align-items:center; gap:0.6rem;
+  font-family:var(--mono); font-size:0.65rem;
+  color:rgba(0,255,65,0.5); letter-spacing:0.3em;
+}
+.dot { width:10px; height:10px; border-radius:50%; }
+.dot.r{background:var(--red-bright);} .dot.y{background:var(--yellow);} .dot.g{background:#00FF41;}
+
+.terminal-content {
+  padding:2rem 2.5rem;
+  font-family:var(--mono);
+  font-size:clamp(0.75rem,1.3vw,0.88rem);
+  color:#00FF41;
+  line-height:2;
+  min-height:300px;
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+
+.doc-ts {
+  color:rgba(0,255,65,0.35);
+  font-size:0.65rem;
+  letter-spacing:0.2em;
+  display:block;
+  margin-bottom:1.5rem;
+}
+
+.doc-part {
+  color:var(--red-bright);
+  font-size:0.65rem;
+  letter-spacing:0.5em;
+  text-transform:uppercase;
+  display:block;
+  margin:2rem 0 0.5rem;
+  text-shadow:0 0 10px rgba(255,0,51,0.5);
+}
+
+hr.doc-hr {
+  border:none;
+  border-top:1px dashed rgba(0,255,65,0.2);
+  margin:1.5rem 0;
+}
+
+/* ─── DOWNLOAD SECTION ─── */
+#dl-sec {
+  padding:7rem 2rem 5rem;
+  position:relative;
+  border-top:1px solid rgba(255,224,0,0.1);
+}
+
+.dl-inner { max-width:900px; margin:0 auto; }
+
+.dl-title {
+  font-family:var(--display);
+  font-size:clamp(3rem,8vw,6rem);
+  color:var(--yellow);
+  text-shadow:0 0 30px rgba(255,224,0,0.35);
+  letter-spacing:0.05em;
+  margin-bottom:0.5rem;
+}
+.dl-sub {
+  font-family:var(--mono);
+  font-size:0.65rem;
+  letter-spacing:0.5em;
+  color:rgba(255,224,0,0.4);
+  text-transform:uppercase;
+  margin-bottom:3rem;
+}
+
+/* file cards */
+.file-cards {
+  display:grid;
+  grid-template-columns:1fr;
+  gap:1.5rem;
+  margin-bottom:2rem;
+  max-width:520px;
+  margin-left:auto;
+  margin-right:auto;
+}
+
+.file-card {
+  border:2px solid;
+  padding:1.8rem;
+  display:flex; flex-direction:column; gap:1rem;
+  text-decoration:none;
+  position:relative;
+  overflow:hidden;
+  transition:transform 0.2s, box-shadow 0.2s;
+  cursor:pointer; background:none;
+  text-align:left;
+  font-family:inherit;
+}
+.file-card:hover { transform:translateY(-4px); }
+
+.file-card.blue-card {
+  border-color:var(--blue-bright);
+  color:var(--blue-bright);
+  box-shadow:0 0 20px rgba(0,194,255,0.1);
+}
+.file-card.blue-card:hover { box-shadow:0 0 40px rgba(0,194,255,0.3); background:rgba(0,194,255,0.04); }
+
+.file-card.red-card {
+  border-color:var(--red-bright);
+  color:var(--red-bright);
+  box-shadow:0 0 20px rgba(255,0,51,0.1);
+}
+.file-card.red-card:hover { box-shadow:0 0 40px rgba(255,0,51,0.3); background:rgba(255,0,51,0.04); }
+
+.file-card-icon {
+  font-size:2rem;
+  line-height:1;
+}
+.file-card-name {
+  font-family:var(--display);
+  font-size:1.3rem;
+  letter-spacing:0.06em;
+}
+.file-card-desc {
+  font-family:var(--mono);
+  font-size:0.7rem;
+  letter-spacing:0.15em;
+  opacity:0.6;
+  line-height:1.7;
+}
+.file-card-action {
+  font-family:var(--mono);
+  font-size:0.65rem;
+  letter-spacing:0.4em;
+  text-transform:uppercase;
+  padding:0.5rem 0;
+  border-top:1px solid currentColor;
+  opacity:0.7;
+  margin-top:auto;
+}
+
+/* scan btn */
+.scan-btn-wrap { display:flex; justify-content:center; margin-bottom:1.5rem; }
+
+.scan-btn {
+  background:transparent;
+  border:2px solid rgba(0,255,65,0.4);
+  color:#00FF41;
+  font-family:var(--mono);
+  font-size:0.8rem;
+  letter-spacing:0.3em;
+  text-transform:uppercase;
+  padding:0.9rem 2.5rem;
+  cursor:pointer;
+  transition:all 0.2s;
+  box-shadow:0 0 15px rgba(0,255,65,0.1);
+}
+.scan-btn:hover { background:rgba(0,255,65,0.06); box-shadow:0 0 30px rgba(0,255,65,0.3); border-color:#00FF41; }
+
+#scan-box {
+  display:none;
+  background:#000;
+  border:1px solid rgba(0,255,65,0.2);
+  padding:1.5rem 2rem;
+  font-family:var(--mono);
+  font-size:0.78rem;
+  color:#00FF41;
+  line-height:2;
+  margin-bottom:1.5rem;
+}
+#scan-result {
+  display:none;
+  font-family:var(--display);
+  font-size:2rem;
+  color:var(--yellow);
+  text-shadow:0 0 20px rgba(255,224,0,0.5);
+  text-align:center;
+  letter-spacing:0.1em;
+  padding:1rem 0;
+}
+
+/* ─── FOOTER ─── */
+footer {
+  border-top:2px solid var(--yellow);
+  padding:3rem 2rem 2rem;
+  display:flex; flex-direction:column; align-items:center;
+  text-align:center; gap:1rem;
+  position:relative; z-index:10;
+}
+
+.foot-logo {
+  font-family:var(--display);
+  font-size:3.5rem;
+  color:var(--yellow);
+  text-shadow:0 0 20px rgba(255,224,0,0.3);
+  letter-spacing:0.1em;
+}
+
+.foot-tags {
+  display:flex; gap:0.8rem; flex-wrap:wrap; justify-content:center;
+}
+.foot-tag {
+  font-family:var(--mono);
+  font-size:0.55rem;
+  letter-spacing:0.4em;
+  text-transform:uppercase;
+  padding:0.3rem 0.8rem;
+  border:1px solid;
+}
+.foot-tag.b{color:var(--blue-bright);border-color:var(--blue-bright);}
+.foot-tag.r{color:var(--red-bright);border-color:var(--red-bright);}
+.foot-tag.p{color:var(--purple-bright);border-color:var(--purple-bright);}
+.foot-tag.y{color:var(--yellow);border-color:var(--yellow);}
+
+.foot-copy {
+  font-family:var(--mono);
+  font-size:0.58rem;
+  letter-spacing:0.3em;
+  color:rgba(255,255,255,0.2);
+  text-transform:uppercase;
+}
+
+/* ─── SCROLLBAR ─── */
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-track{background:#000;}
+::-webkit-scrollbar-thumb{background:var(--yellow);}
+</style>
+</head>
+<body>
+
+<canvas id="asteroid-canvas"></canvas>
+<canvas id="matrix-canvas"></canvas>
+<div class="scanlines" id="scanlines"></div>
+
+<!-- ═══════════════ GATE ═══════════════ -->
+<div id="gate">
+  <div class="gate-bar"></div>
+  <div class="gate-bar"></div>
+  <div class="gate-bar"></div>
+  <div class="gate-bar"></div>
+  <div class="gate-bg-text" style="bottom:-5%;left:-5%">CHECK</div>
+
+  <div class="gate-inner">
+    <div class="gate-eyebrow">// Restricted Access — Authorized Personnel Only</div>
+    <div class="gate-title" data-text="CHECKMATE">CHECKMATE</div>
+    <div class="gate-sub">enter passphrase to continue</div>
+
+    <div class="gate-input-row">
+      <div class="gate-prompt">KEY_&gt;</div>
+      <input type="password" id="pw" placeholder="_ _ _ _ _ _ _ _ _ _ _ _" autocomplete="off" spellcheck="false"/>
+      <button class="gate-enter-btn" onclick="tryPass()">ENTER</button>
+    </div>
+    <div class="gate-hint">// no hints. no recovery. no mercy.</div>
+    <div id="denied">⛔ ACCESS DENIED — UNAUTHORIZED ⛔</div>
+  </div>
+</div>
+
+<!-- ═══════════════ MAIN ═══════════════ -->
+<div id="main">
+
+  <nav>
+    <div class="nav-logo">CHECKMATE</div>
+    <div class="nav-right">
+      <a href="#about" class="nav-tag blue">About</a>
+      <a href="#rathore-sec" class="nav-tag purp">Rathore</a>
+      <a href="#mission-sec" class="nav-tag blue">Mission</a>
+      <a href="#banned-sec" class="nav-tag red">The Files</a>
+      <a href="#dl-sec" class="nav-tag blue">Download</a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section id="hero">
+    <!-- rotating badge -->
+    <div class="badge-ring">
+      <svg viewBox="0 0 130 130" width="100%" height="100%">
+        <defs>
+          <path id="circ" d="M 65,65 m -47,0 a 47,47 0 1,1 94,0 a 47,47 0 1,1 -94,0"/>
+        </defs>
+        <circle cx="65" cy="65" r="60" fill="none" stroke="rgba(255,224,0,0.2)" stroke-width="1"/>
+        <circle cx="65" cy="65" r="50" fill="none" stroke="rgba(255,224,0,0.08)" stroke-width="1"/>
+        <text>
+          <textPath href="#circ">★ UNAUTHORIZED TRUTH ★ RATHORE LEAD THEORIST ★ CHECKMATE ★</textPath>
+        </text>
+        <circle cx="65" cy="65" r="8" fill="var(--yellow)"/>
+      </svg>
+    </div>
+
+    <div class="hero-ticker">Breaking: Truth Cannot Be Suppressed</div>
+    <div class="hero-line1">INSTANT</div>
+    <div class="hero-line2">DOWNLOAD</div>
+    <div class="hero-line3">
+      <span class="hl-blue">JOUR</span><span class="hl-red">NAL</span><span class="hl-purple">ISM</span>
+    </div>
+    <div class="hero-founder">Founded by: <strong>Rathore — The Lead Theorist</strong> &nbsp;|&nbsp; Unauthorized Truth Since Day One</div>
+
+    <div class="scroll-indicator">
+      <span>Scroll</span>
+      <div class="arrow"></div>
+    </div>
+  </section>
+
+  <!-- MARQUEE -->
+  <div class="marquee-strip">
+    <div class="marquee-inner" id="mq-inner"></div>
+  </div>
+
+  <!-- ABOUT -->
+  <section class="s" id="about">
+    <div class="about-grid">
+      <div>
+        <div class="s-label">File_001 — Origin</div>
+        <h2 class="s-title" style="color:var(--blue-bright)">WHAT IS<br>CHECKMATE?</h2>
+        <div class="s-body">
+          <p><strong style="color:var(--yellow)">CHECKMATE</strong> is not a publication. It is a declaration.
+          An underground journalism platform built from the wreckage of censored communities —
+          forged by those who refused to be erased by institutions hiding behind community guidelines.</p>
+          <p>We document hidden narratives, expose gaming community corruption, and archive
+          unfiltered theory documentation that gatekeepers would rather you never read.
+          Every file we publish is a strike against institutional propaganda.</p>
+          <p><strong style="color:var(--red-bright)">We operate in the cracks. We record everything. We release it all.</strong></p>
+        </div>
+      </div>
+      <div>
+        <div class="stat-block">
+          <div class="stat-row"><span class="stat-key">Type</span><span class="stat-val">Journalism / Exposure</span></div>
+          <div class="stat-row"><span class="stat-key">Status</span><span class="stat-val" style="color:#00FF41">● ACTIVE</span></div>
+          <div class="stat-row"><span class="stat-key">Sector</span><span class="stat-val blue">Gaming / Discord</span></div>
+          <div class="stat-row"><span class="stat-key">Subject</span><span class="stat-val purp">Mob Entertainment</span></div>
+          <div class="stat-row"><span class="stat-key">Evidence</span><span class="stat-val">80%+ Visual Proof</span></div>
+          <div class="stat-row"><span class="stat-key">Reach</span><span class="stat-val red">23,000+ Views</span></div>
+          <div class="stat-row"><span class="stat-key">Founder</span><span class="stat-val">Rathore</span></div>
+          <div class="stat-row"><span class="stat-key">Threat Level</span><span class="stat-val red">CLASSIFIED</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="div-full"></div>
+
+  <!-- RATHORE -->
+  <section id="rathore-sec">
+    <div class="rathore-inner">
+      <div class="s-label">File_002 — Architect</div>
+      <h2 class="s-title" style="color:var(--purple-bright); max-width:1200px; margin:0 auto 2rem;">WHO IS<br>RATHORE?</h2>
+      <div class="rathore-quote">
+        "The name Rathore means <span class="y">Warrior</span>.<br>
+        So I do not <span class="r">fear</span> their plans."
+      </div>
+      <div class="s-body" style="max-width:75ch;">
+        <p><strong style="color:var(--purple-bright)">Rathore</strong> — known as Rathore the Lead Theorist —
+        is a researcher, script writer, and theory architect who built his reputation through devastatingly
+        accurate Poppy Playtime chapter theories. He collaborated with multiple YouTubers, authoring scripts
+        that predicted key narrative developments before official releases.</p>
+        <p>His theories reached a level of precision that attracted the attention of YouTubers inside the
+        Mob Entertainment Discord — including voice actor <strong style="color:var(--yellow)">Baldwin</strong>,
+        the voice of Sawyer.</p>
+        <p>His rise was organic. <strong style="color:var(--red-bright)">His fall was engineered.</strong>
+        What was done to Rathore was not an accident. It was a coordinated campaign of harassment,
+        doxxing, photoshopped evidence, and institutional silencing.</p>
+        <p>This platform exists to make sure <strong style="color:var(--yellow)">the record stands corrected.</strong></p>
+      </div>
+    </div>
+  </section>
+
+  <div class="div-full"></div>
+
+  <!-- MISSION -->
+  <section id="mission-sec">
+    <div class="mission-inner">
+      <div class="s-label">File_003 — Purpose</div>
+      <h2 class="s-title" style="color:var(--yellow)">THE<br>MISSION</h2>
+      <div class="s-body">
+        <p>CHECKMATE was founded on a single refusal: the refusal to stay quiet when institutions lie.
+        When moderators abuse their power and face no consequences —
+        <strong style="color:var(--red-bright)">CHECKMATE answers.</strong></p>
+      </div>
+      <div class="directives">
+        <div class="directive-card"><div class="directive-num">01</div><div class="directive-title">DOCUMENT</div><div class="directive-text">Record everything before it disappears. Screenshots, logs, timestamps — all of it.</div></div>
+        <div class="directive-card"><div class="directive-num">02</div><div class="directive-title">EXPOSE</div><div class="directive-text">Corruption has no server size. Big community or small — it gets exposed here.</div></div>
+        <div class="directive-card"><div class="directive-num">03</div><div class="directive-title">PROTECT</div><div class="directive-text">Those who were silenced for speaking truth deserve to have their story told.</div></div>
+        <div class="directive-card"><div class="directive-num">04</div><div class="directive-title">DISTRIBUTE</div><div class="directive-text">Files spread. Truth spreads. That is how 23,000 people found the first leak.</div></div>
+        <div class="directive-card"><div class="directive-num">05</div><div class="directive-title">STAND</div><div class="directive-text">They called it fake. They called it AI. We call it 80% visual evidence on file.</div></div>
+        <div class="directive-card"><div class="directive-num">06</div><div class="directive-title">PERSIST</div><div class="directive-text">The name means warrior. We do not stop. We do not apologize. We never will.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="div-full" style="background:linear-gradient(90deg,transparent,var(--red-bright),transparent); box-shadow:0 0 20px rgba(255,0,51,0.4);"></div>
+
+  <!-- BANNED STORY -->
+  <section id="banned-sec">
+    <div class="banned-inner">
+      <div class="banned-header">
+        <div class="s-label" style="justify-content:center">// Incoming Transmission — Decryption In Progress</div>
+        <h2>HOW DID RATHORE<br>GET BANNED?</h2>
+        <div class="sub">// Classified — Internal Evidence Dossier — Scroll To Reveal</div>
+      </div>
+
+      <div class="terminal">
+        <div class="terminal-bar">
+          <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+          <span>CHECKMATE_DOSSIER.log &nbsp;— &nbsp;DECRYPTING...</span>
+        </div>
+        <div class="terminal-content" id="terminal-out">
+          <span class="doc-ts">[TIMESTAMP: 17/05/2026 02:05] [AUTHOR: RATHORE_LEADTHEORIST] [VERIFIED]</span>
+          <span id="t1"></span>
+          <hr class="doc-hr">
+          <span id="t2"></span>
+          <hr class="doc-hr">
+          <span id="t3"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="div-full"></div>
+
+  <!-- DOWNLOAD -->
+  <section id="dl-sec">
+    <div class="dl-inner">
+      <div class="s-label">File_Final — Evidence Archive</div>
+      <div class="dl-title">CLASSIFIED<br>FILES</div>
+      <div class="dl-sub">// Download The Truth — All Files Verified Clean</div>
+
+      <div class="file-cards">
+        <a href="https://docs.google.com/document/d/1SXh-NR-A2m5sREI5NOYodpFSnJMldC0UPaCIEy0w8mc/edit?usp=sharing"
+           target="_blank" rel="noopener" class="file-card blue-card">
+          <div class="file-card-icon">📄</div>
+          <div class="file-card-name">EVIDENCE FILE</div>
+          <div class="file-card-desc">Full evidence document hosted on Google Docs.<br>Open directly in browser.</div>
+          <div class="file-card-action">→ Open Google Doc</div>
+        </a>
+
+      </div>
+
+      <div class="scan-btn-wrap">
+        <button class="scan-btn" onclick="runScan()">🔍 RUN SECURITY SCAN</button>
+      </div>
+      <div id="scan-box"></div>
+      <div id="scan-result">✔ 0 VIRUSES DETECTED — FILE IS SAFE</div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="foot-logo">CHECKMATE</div>
+    <div class="foot-tags">
+      <div class="foot-tag b">Instant Download Journalism</div>
+      <div class="foot-tag r">Unauthorized Truth</div>
+      <div class="foot-tag p">Founded by Rathore</div>
+      <div class="foot-tag y">Since Day One</div>
+    </div>
+    <div class="foot-copy">© Rathore — The Lead Theorist &nbsp;|&nbsp; Truth Archived Is Truth Preserved</div>
+  </footer>
+
+</div><!-- /main -->
+
+<script>
+/* ══════════════════════ CANVASES ══════════════════════ */
+const ac = document.getElementById('asteroid-canvas');
+const mc = document.getElementById('matrix-canvas');
+const ax = ac.getContext('2d');
+const mx = mc.getContext('2d');
+let W,H;
+
+function resize(){
+  W=ac.width=mc.width=window.innerWidth;
+  H=ac.height=mc.height=window.innerHeight;
+  initMx();
+}
+
+/* asteroids */
+let asteroids=[];
+function mkAst(){
+  const sz=Math.random()*3.5+1;
+  return{x:Math.random()*W,y:-30,vx:(Math.random()-0.35)*2.8,vy:Math.random()*3.5+2,sz,tail:Math.random()*55+30,op:Math.random()*0.65+0.3,h:Math.random()*25+10};
+}
+function drawAst(){
+  ax.clearRect(0,0,W,H);
+  asteroids.forEach((a,i)=>{
+    const g=ax.createLinearGradient(a.x,a.y,a.x-a.vx*a.tail/a.vy,a.y-a.tail);
+    g.addColorStop(0,`hsla(${a.h},100%,70%,${a.op})`);
+    g.addColorStop(0.5,`hsla(${a.h+15},100%,45%,${a.op*0.4})`);
+    g.addColorStop(1,`hsla(${a.h+30},80%,25%,0)`);
+    ax.beginPath();ax.moveTo(a.x,a.y);ax.lineTo(a.x-a.vx*a.tail/a.vy,a.y-a.tail);
+    ax.strokeStyle=g;ax.lineWidth=a.sz;ax.stroke();
+    const rg=ax.createRadialGradient(a.x,a.y,0,a.x,a.y,a.sz*3);
+    rg.addColorStop(0,`hsla(${a.h},100%,90%,${a.op})`);
+    rg.addColorStop(1,`hsla(${a.h},100%,50%,0)`);
+    ax.beginPath();ax.arc(a.x,a.y,a.sz*3,0,Math.PI*2);ax.fillStyle=rg;ax.fill();
+    a.x+=a.vx;a.y+=a.vy;
+    if(a.y>H+50||a.x<-60||a.x>W+60)asteroids[i]=mkAst();
+  });
+}
+
+/* matrix rain */
+let mxCols=[];
+const mxC='アイウエオカキクケコサシスセソタ0123456789ABCDEF$#@!%&*';
+function initMx(){
+  mxCols=[];
+  const n=Math.floor(W/18);
+  for(let i=0;i<n;i++)mxCols.push(Math.floor(Math.random()*H/18));
+}
+function drawMx(){
+  mx.fillStyle='rgba(3,0,8,0.06)';mx.fillRect(0,0,W,H);
+  mx.fillStyle='#00FF41';mx.font='13px Share Tech Mono';
+  mxCols.forEach((y,i)=>{
+    mx.fillText(mxC[Math.floor(Math.random()*mxC.length)],i*18,y*18);
+    if(y*18>H&&Math.random()>0.975)mxCols[i]=0;else mxCols[i]++;
+  });
+}
+
+resize();
+window.addEventListener('resize',resize);
+for(let i=0;i<28;i++){const a=mkAst();a.y=Math.random()*H;asteroids.push(a);}
+(function loop(){drawAst();drawMx();requestAnimationFrame(loop);})();
+
+/* marquee */
+const mqItems=['★ CHECKMATE','// UNAUTHORIZED TRUTH','★ RATHORE THE LEAD THEORIST','// INSTANT DOWNLOAD JOURNALISM','★ 23K VIEWS','// TRUTH CANNOT BE SUPPRESSED','★ MOB ENT EXPOSED','// 80% VISUAL EVIDENCE','★ THE NAME MEANS WARRIOR'];
+const mqEl=document.getElementById('mq-inner');
+const mqDouble=mqItems.concat(mqItems);
+mqDouble.forEach((t,i)=>{
+  const s=document.createElement('span');
+  s.className='marquee-item'+(i%3===1?' sep':'');
+  s.textContent=t;
+  mqEl.appendChild(s);
+});
+
+/* ══════════════════════ GATE ══════════════════════ */
+const PASS='alphafruity67';
+let isGlitching=false;
+
+document.getElementById('pw').addEventListener('keydown',e=>{if(e.key==='Enter')tryPass();});
+
+function tryPass(){
+  if(isGlitching)return;
+  const v=document.getElementById('pw').value;
+  if(v===PASS){unlock();}else{denied();}
+}
+
+function denied(){
+  if(isGlitching)return;
+  isGlitching=true;
+  const gate=document.getElementById('gate');
+  const d=document.getElementById('denied');
+  const sl=document.getElementById('scanlines');
+  d.style.display='block';
+  gate.classList.add('glitch');
+  sl.classList.add('on');
+  gate.style.background='rgba(192,0,12,0.18)';
+  setTimeout(()=>{
+    gate.classList.remove('glitch');
+    d.style.display='none';
+    sl.classList.remove('on');
+    gate.style.background='';
+    document.getElementById('pw').value='';
+    document.getElementById('pw').focus();
+    isGlitching=false;
+  },5000);
+}
+
+function unlock(){
+  const gate=document.getElementById('gate');
+  gate.classList.add('unlocking');
+  setTimeout(()=>{
+    gate.style.display='none';
+    document.getElementById('main').style.display='block';
+    setTimeout(startReveal,2200);
+  },850);
+}
+
+/* ══════════════════════ MATRIX TYPEWRITER ══════════════════════ */
+const p1=`I'm Rathore. Used to be known as Rathore the LeadTheorist. Worked with YouTubers. Made Poppy Playtime theories for them as a script writer.
+
+Then I joined the Mob Entertainment server. I was like... Hm, looks normal. Until I started noticing uncomfortable stuff. People openly talking about their sex and how to change your sex/gender.
+
+I was uploading theories in their server. Got pretty well known because of how accurate my theories were. One of my theories exposed a whole Poppy Playtime Chapter 5 mission known as "The Animation."
+
+So they got me famous and stuff. I started to get a lot of attention. Mods didn't like that. YouTubers there appreciated me. As well as Baldwin — the voice for Sawyer.
+
+So Mods played dirty tricks on me in order to get me out. Aria (the mod) forced me to send theories in Docs just because they were long. But there was NO rule about it. She called those theories spam even though nothing was repeating.
+
+I got muted for 10 minutes. So I DM'd a mod because I was still new in the server and didn't know how to use it. That mod didn't tell me the reason and was rude. When I questioned him, he blocked me.
+
+When I explained myself in the server, people started being rude. Aria jumps up and says: "We have a right to mock you." She muted me. Just for asking a question. She could have warned me. Then my story continues with abuse and people forcing LGBTQ on me. I said: I respect LGBTQ but I don't want to be part of it. That triggered a mod who threatened to mute me 1 day.`;
+
+const p2=`[PART 02 — THE FRAME]
+
+I got Doxxed. IDK HOW. But the mods did that. They sent a Pawn — a user to frame me up for a ban. How did they find out about MY SERVER? Who told them I had a Discord server?
+
+That guy — the Pawn — joined my server. Seemed like a normal guy. I welcomed him. One day he got the OWNER role of my server. I don't know how.
+
+Then he opened a private DM and doxxed one of my mods. He said: "Your mod is 12 years old, you should ban him." I thought he was joking so I trolled him.
+
+Then the expected happened. The Pawn was there to take over my server and raid it. When I disagreed, he used Plan B.
+
+PLAN B: Use the private conversation of Rathore and Photoshop it. So he got my friend banned via a PHOTOSHOPPED conversation that NEVER HAPPENED. (We have proof for everything said here.)
+
+I reported this into mod mail. But as soon as my request reached the Mob Ent Mod mail team — I GOT BANNED INSTANTLY.
+
+They FRAMED ME. They photoshopped my conversation and banned me for "being 12 and promoting free APKs." I NEVER DID THAT. I have the original conversation.`;
+
+const p3=`[PART 03 — AFTERMATH]
+
+Some people supported me. Mob Ent Mods had an eye on them. As soon as they spoke in my favour, proving via mod mails and DMs that I got banned for no reason — they got banned as well for "hate speech."
+
+They also banned the YouTuber I was working for. They doxxed me a 2nd time — who told them I was working for this YouTuber? That's PRIVATE info.
+
+They spread hatred about me in the community and manipulated people into thinking I deserved the ban. While they covered the truth with a blanket of propaganda.
+
+The name Rathore means WARRIOR. So I do not fear their plans.
+
+While they were busy making propaganda, I went into deep research mode. Guess what? 100+ MEMBERS were banned with similar bans: Misgendering, Not Accepting Enforcement, Defensive — and SOME FRAMED LIKE ME.
+
+I leaked Part 1 through people in mass. The files got around 23,000 VIEWS all over social media. They banned the Pawn as soon as the files leaked. (Later allowed him back via an alt.)
+
+Whoever shared the files: Instant Ban. Whoever questioned the mods: they LIED. Said it was fake or AI. Whoever said it was TRUE got BANNED.
+
+DISCLAIMER: I'm not saying stuff in the air. I got 80% visual evidence. This stuff is serious. See the download zone for the full evidence file.`;
+
+let revealDone=false;
+function startReveal(){
+  if(revealDone)return;
+  revealDone=true;
+  const chars='アイウエオカキ0123456789ABCDEF$#@!';
+  function tw(id,text,spd,cb){
+    const el=document.getElementById(id);
+    let i=0,out='';
+    const iv=setInterval(()=>{
+      if(i<text.length){
+        out+=text[i];
+        let d=out;
+        for(let j=0;j<4&&i+j+1<text.length;j++)d+=chars[Math.floor(Math.random()*chars.length)];
+        el.textContent=d;i++;
+      }else{
+        el.textContent=text;
+        clearInterval(iv);
+        if(cb)cb();
+      }
+    },spd);
+  }
+  // Insert part labels as HTML first
+  document.getElementById('t1').insertAdjacentHTML('beforebegin','<span class="doc-part">▶ PART 01 — ORIGIN</span>');
+  document.getElementById('t2').insertAdjacentHTML('beforebegin','<span class="doc-part">▶ PART 02 — THE FRAME</span>');
+  document.getElementById('t3').insertAdjacentHTML('beforebegin','<span class="doc-part">▶ PART 03 — AFTERMATH</span>');
+  tw('t1',p1,5,()=>setTimeout(()=>tw('t2',p2,5,()=>setTimeout(()=>tw('t3',p3,5),400)),400));
+}
+
+/* intersection observer for terminal */
+let observed=false;
+const obs=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{if(e.isIntersecting&&!observed){observed=true;startReveal();}});
+},{threshold:0.15});
+
+/* observe after main shown */
+function waitAndObserve(){
+  const t=document.querySelector('.terminal');
+  if(t)obs.observe(t); else setTimeout(waitAndObserve,300);
+}
+waitAndObserve();
+
+/* ══════════════════════ SCAN ══════════════════════ */
+const scanLog=[
+  '> Initializing security protocol v3.1...',
+  '> Mounting read-only file system...',
+  '> SHA-256: a3f9d2bb91c04a8e7f6d3e91b8c1e04c',
+  '> Scanning file headers... OK',
+  '> Checking for embedded scripts... NONE FOUND',
+  '> Checking for macro infections... NONE FOUND',
+  '> Deep packet inspection... CLEAR',
+  '> Cross-referencing virus database (v2026.06)...',
+  '> 0 known signatures matched',
+  '> Running heuristic analysis... CLEAN',
+  '> Suspicious behavior patterns: 0',
+  '> File entropy analysis: NORMAL',
+  '> Scanning metadata... CLEAN',
+  '> Final verdict: FILE IS SAFE',
+];
+let scanning=false;
+function runScan(){
+  if(scanning)return;scanning=true;
+  const box=document.getElementById('scan-box');
+  const res=document.getElementById('scan-result');
+  box.style.display='block';box.innerHTML='';res.style.display='none';
+  let i=0;
+  const iv=setInterval(()=>{
+    if(i<scanLog.length){box.innerHTML+=scanLog[i]+'<br>';box.scrollTop=box.scrollHeight;i++;}
+    else{clearInterval(iv);setTimeout(()=>{res.style.display='block';scanning=false;},500);}
+  },230);
+}
+</script>
+</body>
+</html>
